@@ -1,0 +1,97 @@
+from deeprobust.graph.data import Dataset
+import numpy as np
+import random
+import time
+import argparse
+import torch
+from utils import *
+import torch.nn.functional as F
+from gcond_agent_transduct import MGCond
+from utils_graphsaint import DataGraphSAINT
+from torch_geometric.datasets import Yelp
+import os
+
+import torch, gc
+
+torch.set_printoptions(profile="full")
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--gpu_id', type=int, default=7, help='gpu id')
+parser.add_argument('--dataset', type=str, default='ppi')
+parser.add_argument('--reduction_rate', type=float, default=0.01)
+parser.add_argument('--loss', type=str, default='BCE') # BCE OR OTHERS
+
+parser.add_argument('--lab_prob', type=int, default=0)
+parser.add_argument('--subgraph', type=int, default=1)
+parser.add_argument('--method', type=str, default="random") #choices=['kcenter', 'herding', 'random']
+
+parser.add_argument('--c_model', type=str, default='sgc')
+parser.add_argument('--test_model', type=str, default='gcn')
+
+parser.add_argument('--dis_metric', type=str, default='ours')
+parser.add_argument('--epochs', type=int, default=2000)
+parser.add_argument('--nlayers', type=int, default=2)
+parser.add_argument('--hidden', type=int, default=64)
+
+parser.add_argument('--lr_adj', type=float, default=1e-2) # if set 0, learn without adj
+
+parser.add_argument('--lr_feat', type=float, default=1e-2)
+parser.add_argument('--lr_model', type=float, default=0.01)
+parser.add_argument('--weight_decay', type=float, default=0.0)
+parser.add_argument('--dropout', type=float, default=0.0)
+parser.add_argument('--normalize_features', type=bool, default=True)
+parser.add_argument('--keep_ratio', type=float, default=1.0)
+parser.add_argument('--alpha', type=float, default=0, help='regularization term.')
+parser.add_argument('--debug', type=int, default=0)
+parser.add_argument('--sgc', type=int, default=1)
+parser.add_argument('--inner', type=int, default=0)
+parser.add_argument('--outer', type=int, default=20)
+parser.add_argument('--save', type=int, default=0)
+# for fast run
+parser.add_argument('--one_step', type=int, default=1)
+parser.add_argument('--seed', type=int, default=42, help='Random seed.')
+
+# # init label_syn
+# parser.add_argument('--c_model', type=str, default='sgc')
+# parser.add_argument('--test_model', type=str, default='gcn')
+
+# # # update labels
+# parser.add_argument('--lab_up', type=int, default=0)
+# parser.add_argument('--lab_step', type=int, default=50)# ppi 50 2(-loss) dblp 20 yelp 20
+# parser.add_argument('--lr_lab', type=float, default=1e-3)
+# parser.add_argument('--lcorr', type=int, default=1)
+# # # yelp 5e-3 ppi 1e-4 dblp 10
+# parser.add_argument('--loss_lab', type=float, default=1e-2)# yelp 5e-3 ppi 1 dblp 1e5
+
+
+args = parser.parse_args()
+torch.cuda.set_device(args.gpu_id)
+
+# random seed setting
+random.seed(args.seed)
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
+torch.cuda.manual_seed(args.seed)
+
+print(args)
+
+data_full = get_dataset(args.dataset, args.normalize_features)
+data = Transd2Ind(data_full, keep_ratio=args.keep_ratio)
+
+agent = MGCond(data, args, device='cuda')
+agent.train()
+
+# agent.test_with_val()
+
+# if args.lab_up:
+#     agent = MGCond(data, args, device='cuda')
+#     agent.train()
+# else:
+#     print('@original agent')
+#     if args.one_step:
+#         print('@one step GCond')
+#     agent0 = GCond(data, args, device='cuda')
+#     agent0.train()
+# agent0.syn_label_image()
+
+# agent.syn_label_image()
