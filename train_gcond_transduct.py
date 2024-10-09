@@ -21,7 +21,6 @@ parser.add_argument('--dataset', type=str, default='ppi')
 parser.add_argument('--reduction_rate', type=float, default=0.01)
 parser.add_argument('--loss', type=str, default='BCE') # BCE OR OTHERS
 
-parser.add_argument('--lab_prob', type=int, default=0)
 parser.add_argument('--subgraph', type=int, default=1)
 parser.add_argument('--method', type=str, default="random") #choices=['kcenter', 'herding', 'random']
 

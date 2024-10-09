@@ -33,23 +33,19 @@ class MGCond:
         # self.feat_syn = nn.Parameter(torch.FloatTensor(n, d).to(device))
         
         self.pge = PGE(nfeat=d, nnodes=n, device=device,args=args).to(device)
-        if self.args.lab_prob:
-            self.labels_syn = self.generate_labels_syn(n).to(device)
-            self.feat_syn = nn.Parameter(self.generate_feat_syn(self.labels_syn, n).to(device))
-
-        elif self.args.subgraph:
+        
+        if self.args.subgraph:
             feat_syn, labels_syn = self.coreset_init()
             self.labels_syn = labels_syn.to(device)
             self.feat_syn = nn.Parameter(feat_syn.to(device))
         else:
-            print("@random subgraph")
-            sub_nodes = np.random.choice(data.feat_train.shape[0], n, replace=False)
-            # print('subgraph index',sub_nodes)
-            self.labels_syn = torch.FloatTensor(data.labels_train[sub_nodes]).to(device)
-            self.feat_syn = nn.Parameter(torch.FloatTensor(data.feat_train[sub_nodes]).to(device))
+            self.labels_syn = self.generate_labels_syn(n).to(device)
+            self.feat_syn = nn.Parameter(self.generate_feat_syn(self.labels_syn, n).to(device))
 
-        if args.loss=="BCE":
-            print("@BCELOSS")
+        if args.loss=="BCE+":
+            print("@BCELOSS+Coefficience")
+        elif args.loss=="BCE":
+            print("@SoftMarginLoss")
         else:
             print("@SoftMarginLoss")
         
@@ -173,12 +169,6 @@ class MGCond:
                         nclass=data.nclass, device=device).to(device)
         # print('@test model', model)
 
-        adj_syn = pge.inference(feat_syn)
-        # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
-        if self.args.loss == "BCE":
-            criterion = nn.BCEWithLogitsLoss()
-        else:
-            criterion = nn.MultiLabelSoftMarginLoss()
 
         if self.args.lr_adj == 0:
             n = len(labels_syn)
@@ -189,6 +179,20 @@ class MGCond:
         model.eval()
         labels_train = torch.LongTensor(data.labels_train).to(device)
         labels_test = torch.LongTensor(data.labels_test).to(device)
+                        # Calculate the coefficience
+        class_counts = labels_train.sum(dim=0)
+        epsilon = 1e-6
+        class_weights = 1.0 / (class_counts + epsilon)
+        class_weights = class_weights / class_weights.sum() * len(class_weights)
+
+        adj_syn = pge.inference(feat_syn)
+        # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
+        if self.args.loss == "BCE":
+            criterion = nn.BCEWithLogitsLoss()
+        elif self.args.loss == "BCE+":
+            criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights)
+        else:
+            criterion = nn.MultiLabelSoftMarginLoss()
 
         output = model.predict(data.feat_train, data.adj_train)
         loss_train = criterion(output, labels_train.float())
@@ -270,7 +274,9 @@ class MGCond:
             optimizer_model = torch.optim.Adam(model_parameters, lr=args.lr_model)
             model.train()
             # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
-            if args.loss == "BCE":
+            if self.args.loss == "BCE":
+                criterion = nn.BCEWithLogitsLoss()
+            elif self.args.loss == "BCE+":
                 criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights)
             else:
                 criterion = nn.MultiLabelSoftMarginLoss()
