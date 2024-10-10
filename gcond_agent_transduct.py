@@ -33,7 +33,7 @@ class MGCond:
         # self.feat_syn = nn.Parameter(torch.FloatTensor(n, d).to(device))
         
         self.pge = PGE(nfeat=d, nnodes=n, device=device,args=args).to(device)
-        
+
         if self.args.subgraph:
             feat_syn, labels_syn = self.coreset_init()
             self.labels_syn = labels_syn.to(device)
@@ -45,7 +45,7 @@ class MGCond:
         if args.loss=="BCE+":
             print("@BCELOSS+Coefficience")
         elif args.loss=="BCE":
-            print("@SoftMarginLoss")
+            print("@BCE")
         else:
             print("@SoftMarginLoss")
         
@@ -169,11 +169,12 @@ class MGCond:
                         nclass=data.nclass, device=device).to(device)
         # print('@test model', model)
 
+        adj_syn = pge.inference(feat_syn)
 
         if self.args.lr_adj == 0:
             n = len(labels_syn)
             adj_syn = torch.zeros((n, n))
-        
+
         model.fit_with_val(feat_syn, adj_syn, labels_syn, data,
                      train_iters=200, normalize=True, verbose=False)
         model.eval()
@@ -185,7 +186,6 @@ class MGCond:
         class_weights = 1.0 / (class_counts + epsilon)
         class_weights = class_weights / class_weights.sum() * len(class_weights)
 
-        adj_syn = pge.inference(feat_syn)
         # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
         if self.args.loss == "BCE":
             criterion = nn.BCEWithLogitsLoss()
@@ -243,7 +243,13 @@ class MGCond:
         adj = adj_norm
         adj = SparseTensor(row=adj._indices()[0], col=adj._indices()[1],
                 value=adj._values(), sparse_sizes=adj.size()).t()
-
+        # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
+        if self.args.loss == "BCE":
+            criterion = nn.BCEWithLogitsLoss()
+        elif self.args.loss == "BCE+":
+            criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights)
+        else:
+            criterion = nn.MultiLabelSoftMarginLoss()
         outer_loop, inner_loop = get_loops(args)
         # loss_avg = 0
         for it in range(args.epochs+1):
@@ -273,13 +279,7 @@ class MGCond:
             model_parameters = list(model.parameters())
             optimizer_model = torch.optim.Adam(model_parameters, lr=args.lr_model)
             model.train()
-            # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
-            if self.args.loss == "BCE":
-                criterion = nn.BCEWithLogitsLoss()
-            elif self.args.loss == "BCE+":
-                criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights)
-            else:
-                criterion = nn.MultiLabelSoftMarginLoss()
+
 
             for ol in range(outer_loop):
                 adj_syn = pge(self.feat_syn)

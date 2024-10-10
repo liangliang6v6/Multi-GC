@@ -16,92 +16,96 @@ declare -A datasets=(
 )
 
 BASE_PATH="log/GCond"
+# BCE BCE+ MUL
+loss="BCE+"
+# train_sgdd.py train_gcdm.py
+GC=train_gcond_transduct.py
 
 for dataset in "${!datasets[@]}"; do
   r_value=${datasets[$dataset]}
   gpu_id=0
-  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_r${r_value}_random_adj.log"
+  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_${loss}_random_adj.log"
 
   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
-  python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=1e-2 --dataset $dataset --r=$r_value --subgraph=1 --method="random" >> $LOG_FILE_LABRAND0 2>/dev/null &
+  python train_gcond_transduct.py  --gpu_id=$gpu_id --loss=${loss} --lr_adj=1e-2 --dataset $dataset --r=$r_value --subgraph=1 --method="random" >> $LOG_FILE_LABRAND0 2>/dev/null &
 
 done
 
 # for dataset in "${!datasets[@]}"; do
 #   r_value=${datasets[$dataset]}
-#   gpu_id=1
-#   LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_r${r_value}_random.log"
+#   gpu_id=3
+#   LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_${loss}_random.log"
 
 #   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value, prob_rand=0)" > $LOG_FILE_LABRAND0
-#   python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=0 --dataset $dataset --r=$r_value --subgraph=1 --method="random" >> $LOG_FILE_LABRAND0 2>/dev/null &
+#   python train_gcond_transduct.py  --gpu_id=$gpu_id --loss=${loss} --lr_adj=0 --dataset $dataset --r=$r_value --subgraph=1 --method="random" >> $LOG_FILE_LABRAND0 2>/dev/null &
 
 # done
-
-for dataset in "${!datasets[@]}"; do
-  r_value=${datasets[$dataset]}
-  gpu_id=2
-  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_r${r_value}_herding_adj.log"
-
-  echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
-  python train_sgdd.py  --gpu_id=$gpu_id --lr_adj=1e-2 --dataset $dataset --r=$r_value --subgraph=1 --method="herding" >> $LOG_FILE_LABRAND0 2>/dev/null &
-
-done
 
 for dataset in "${!datasets[@]}"; do
   r_value=${datasets[$dataset]}
   gpu_id=1
-  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_r${r_value}_herding.log"
+  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_${loss}_herding_adj.log"
 
   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
-  python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=0 --dataset $dataset --r=$r_value --subgraph=1 --method="herding" >> $LOG_FILE_LABRAND0 2>/dev/null &
+  python train_sgdd.py  --gpu_id=$gpu_id --lr_adj=1e-2 --loss=${loss} --dataset $dataset --r=$r_value --subgraph=1 --method="herding" >> $LOG_FILE_LABRAND0 2>/dev/null &
 
 done
 
 # for dataset in "${!datasets[@]}"; do
 #   r_value=${datasets[$dataset]}
-#   gpu_id=4
-#   LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_r${r_value}_kcenter_adj.log"
+#   gpu_id=2
+#   LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_${loss}_herding.log"
 
 #   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
-#   python train_sgdd.py  --gpu_id=$gpu_id --lr_adj=1e-2 --dataset $dataset --r=$r_value --subgraph=1 --method="kcenter" >> $LOG_FILE_LABRAND0 2>/dev/null &
+#   python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=0 --loss=${loss} --dataset $dataset --r=$r_value --subgraph=1 --method="herding" >> $LOG_FILE_LABRAND0 2>/dev/null &
 
 # done
-
-for dataset in "${!datasets[@]}"; do
-  r_value=${datasets[$dataset]}
-  gpu_id=2
-  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_r${r_value}_kcenter.log"
-
-  echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
-  python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=0 --dataset $dataset --r=$r_value --subgraph=1 --method="kcenter" >> $LOG_FILE_LABRAND0 2>/dev/null &
-
-done
-
 
 for dataset in "${!datasets[@]}"; do
   r_value=${datasets[$dataset]}
   gpu_id=3
-  LOG_FILE_LABRAND1="${BASE_PATH}/${dataset}_r${r_value}_prob.log"
+  LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_${loss}_kcenter_adj.log"
 
-  echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND1
-  python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=0 --dataset $dataset --r=$r_value --lab_prob=1 >> $LOG_FILE_LABRAND1 2>/dev/null &
-  
+  echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
+  python $GC  --gpu_id=$gpu_id --lr_adj=1e-2 --dataset $dataset --loss=${loss} --r=$r_value --subgraph=1 --method="kcenter" >> $LOG_FILE_LABRAND0 2>/dev/null &
+
 done
 
 # for dataset in "${!datasets[@]}"; do
 #   r_value=${datasets[$dataset]}
-#   gpu_id=7
-#   LOG_FILE_LABRAND1="log/set/${dataset}_r${r_value}_prob_adj.log"
+#   gpu_id=4
+#   LOG_FILE_LABRAND0="${BASE_PATH}/${dataset}_${loss}_kcenter.log"
+
+#   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND0
+#   python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=0 --loss=${loss} --dataset $dataset --r=$r_value --subgraph=1 --method="kcenter" >> $LOG_FILE_LABRAND0 2>/dev/null &
+
+# done
+
+
+# for dataset in "${!datasets[@]}"; do
+#   r_value=${datasets[$dataset]}
+#   gpu_id=4
+#   LOG_FILE_LABRAND1="${BASE_PATH}/${dataset}_${loss}_prob.log"
 
 #   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND1
-#   python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=1e-2 --dataset $dataset --r=$r_value --lab_prob=1 >> $LOG_FILE_LABRAND1 2>/dev/null &
+#   python $GC --gpu_id=$gpu_id --lr_adj=0 --loss=$loss --dataset $dataset --r=$r_value --subgraph=0 >> $LOG_FILE_LABRAND1 2>/dev/null &
+  
+# done
+
+# for dataset in "${!datasets[@]}"; do
+#   r_value=${datasets[$dataset]}
+#   gpu_id=5
+#   LOG_FILE_LABRAND1="${BASE_PATH}/${dataset}_${loss}_prob_adj.log"
+
+#   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value)" > $LOG_FILE_LABRAND1
+#   python $GC  --gpu_id=$gpu_id --lr_adj=1e-2 --loss=$loss --dataset $dataset --r=$r_value --subgraph=0 >> $LOG_FILE_LABRAND1 2>/dev/null &
   
 # done
 
 # for dataset in "${!datasets[@]}"; do
 #   r_value=${datasets[$dataset]}
 #   gpu_id=4
-#   LOG_FILE_LABRAND1="log/label/${dataset}_r${r_value}_prob.log"
+#   LOG_FILE_LABRAND1="log/label/${dataset}_${loss}_prob.log"
 
 #   echo "Running on GPU $gpu_id with dataset $dataset (r=$r_value, lab_rand=1)" > $LOG_FILE_LABRAND1
 #   python train_gcond_transduct.py  --gpu_id=$gpu_id --lr_adj=1e-2 --dataset $dataset --r=$r_value --lab_rand=0 >> $LOG_FILE_LABRAND1 2>/dev/null &
