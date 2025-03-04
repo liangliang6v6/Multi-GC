@@ -207,6 +207,7 @@ class GCDM:
         
         # loss_avg = 0
         encoder = Encoder(data.feat_train.shape[1], args.hid_dim, args.emb_dim, args.n_layers, args.hop, args.activation).to(self.device)
+        K = labels.shape[1]  # num labels for multi-label
 
         for it in trange(args.epochs+1):
             encoder.initialize()
@@ -218,9 +219,26 @@ class GCDM:
             
             loss = torch.tensor(0.).to(self.device)
             
-            # for multi-label nodes
-            dist = torch.mean(emb_real, 0) - torch.mean(emb_cond, 0)
-            loss += torch.sum(dist ** 2)
+            # # for multi-label nodes
+            # dist = torch.mean(emb_real, 0) - torch.mean(emb_cond, 0)
+            # loss += torch.sum(dist ** 2)
+        
+        # Multi-label adjusted loss calculation
+        for k in range(K):
+            idx_real_k = (labels[:, k] > 0).nonzero().squeeze()
+            idx_syn_k = (labels_syn[:, k] > 0).nonzero().squeeze()
+
+            if idx_real_k.numel() == 0 or idx_syn_k.numel() == 0:
+                continue  # skip labels absent in real or synthetic data
+
+            emb_real_k = emb_real[idx_real_k]
+            emb_cond_k = emb_cond[idx_syn_k]
+
+            mean_real_k = emb_real_k.mean(dim=0)
+            mean_cond_k = emb_cond_k.mean(dim=0)
+
+            dist_k = mean_real_k - mean_cond_k
+            loss += torch.sum(dist_k ** 2)
 
             self.optimizer_feat.zero_grad()
             loss.backward()
@@ -232,7 +250,7 @@ class GCDM:
             eval_epochs = list(range(0, 5000, 50))
             if verbose and it in eval_epochs:
                 res = []
-                runs = 1 if args.dataset in ['ogbn-arxiv'] else 3
+                runs = 1
                 
                 for i in range(runs):
                     res.append(self.test_with_val())

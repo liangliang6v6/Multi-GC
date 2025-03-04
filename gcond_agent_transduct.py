@@ -21,39 +21,41 @@ from sklearn.metrics import accuracy_score
 from coreset import KCenter, Herding, Random
 
 class MGCond:
-    def __init__(self, data, args, device='cuda', **kwargs):
+    def __init__(self, data, args,dataset, device='cuda', **kwargs):
         # torch.autograd.set_detect_anomaly(True)
         self.data = data
         self.args = args
         self.device = device
-
-        n = int(data.feat_train.shape[0] * args.reduction_rate)
-        d = data.feat_train.shape[1]
-        self.nnodes_syn = n
-        # self.feat_syn = nn.Parameter(torch.FloatTensor(n, d).to(device))
+        labels = torch.tensor(self.data.labels_train, dtype=torch.float32)
+        syn_label_corr(labels, args, dataset)
+        syn_label_distribution(labels, dataset)
+        # n = int(data.feat_train.shape[0] * args.reduction_rate)
+        # d = data.feat_train.shape[1]
+        # self.nnodes_syn = n
+        # # self.feat_syn = nn.Parameter(torch.FloatTensor(n, d).to(device))
         
-        self.pge = PGE(nfeat=d, nnodes=n, device=device,args=args).to(device)
+        # self.pge = PGE(nfeat=d, nnodes=n, device=device,args=args).to(device)
 
-        if self.args.subgraph:
-            feat_syn, labels_syn = self.coreset_init()
-            self.labels_syn = labels_syn.to(device)
-            self.feat_syn = nn.Parameter(feat_syn.to(device))
-        else:
-            self.labels_syn = self.generate_labels_syn(n).to(device)
-            self.feat_syn = nn.Parameter(self.generate_feat_syn(self.labels_syn, n).to(device))
+        # if self.args.subgraph:
+        #     feat_syn, labels_syn = self.coreset_init()
+        #     self.labels_syn = labels_syn.to(device)
+        #     self.feat_syn = nn.Parameter(feat_syn.to(device))
+        # else:
+        #     self.labels_syn = self.generate_labels_syn(n).to(device)
+        #     self.feat_syn = nn.Parameter(self.generate_feat_syn(self.labels_syn, n).to(device))
 
-        if args.loss=="BCE+":
-            print("@BCELOSS+Coefficience")
-        elif args.loss=="BCE":
-            print("@BCE")
-        else:
-            print("@SoftMarginLoss")
+        # if args.loss=="BCE+":
+        #     print("@BCELOSS+Coefficience")
+        # elif args.loss=="BCE":
+        #     print("@BCE")
+        # else:
+        #     print("@SoftMarginLoss")
         
-        self.optimizer_feat = torch.optim.Adam([self.feat_syn], lr=args.lr_feat)
-        self.optimizer_pge = torch.optim.Adam(self.pge.parameters(), lr=args.lr_adj)
+        # self.optimizer_feat = torch.optim.Adam([self.feat_syn], lr=args.lr_feat)
+        # self.optimizer_pge = torch.optim.Adam(self.pge.parameters(), lr=args.lr_adj)
         
-        print('adj_syn:', (n,n), 'feat_syn:', self.feat_syn.shape)
-        # print('@original syn feature', self.feat_syn[0])
+        # print('adj_syn:', (n,n), 'feat_syn:', self.feat_syn.shape)
+        # # print('@original syn feature', self.feat_syn[0])
     
     def coreset_init(self):
         data = self.data

@@ -17,7 +17,7 @@ torch.set_printoptions(profile="full")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu_id', type=int, default=0, help='gpu id')
-parser.add_argument('--dataset', type=str, default='ppi')
+parser.add_argument('--dataset', type=str, default='ppi-large')
 parser.add_argument('--reduction_rate', type=float, default=0.01)
 parser.add_argument('--loss', type=str, default='BCE') # BCE BCE+
 parser.add_argument('--subgraph', type=int, default=1)
@@ -33,7 +33,7 @@ parser.add_argument('--hidden', type=int, default=64)
 
 parser.add_argument('--lr_adj', type=float, default=1e-2) # if set 0, learn without adj
 
-parser.add_argument('--lr_feat', type=float, default=1e-2)
+parser.add_argument('--lr_feat', type=float, default=1e-3)
 parser.add_argument('--lr_model', type=float, default=0.01)
 parser.add_argument('--weight_decay', type=float, default=0.0)
 parser.add_argument('--dropout', type=float, default=0.0)
@@ -76,8 +76,9 @@ print(args)
 data_full = get_dataset(args.dataset, args.normalize_features)
 data = Transd2Ind(data_full, keep_ratio=args.keep_ratio)
 
-agent = MGCond(data, args, device='cuda')
-agent.train()
+agent = MGCond(data, args, "PPI-Large", device='cuda')
+
+# agent.train()
 
 # agent.test_with_val()
 

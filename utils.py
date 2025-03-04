@@ -440,7 +440,8 @@ def ml_acc(output, labels, threshold=0.5):
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-def syn_label_corr(labels, args):
+# plt.rc('font',family='Times New Roman')
+def syn_label_corr(labels, args, dataset):
     # co-ocurrence count matrix M
     M = torch.matmul(labels.t(), labels)
     # total occurrenvr of each class
@@ -463,12 +464,12 @@ def syn_label_corr(labels, args):
                 plt.text(j, i, f'{P[i, j]:.3f}', ha='center', va='center', color='white')
 
     plt.colorbar() 
-    plt.title(f'{args.dataset}-{args.reduction_rate}-syn_labels Correlations')
+    plt.title(f'{dataset} Multi-Label Correlations')
     plt.xlabel('Labels')
     plt.ylabel('Labels')
-    plt.savefig(f'./label-corr/{args.dataset}-{args.reduction_rate}-GCond.png')
+    plt.savefig('./images/' + dataset +'labels'+ '.svg', format='svg', dpi = 600)
     plt.close()
-    print(args.dataset+'Image saved')
+    print(dataset+'Image saved')
 
 def syn_label_distribution(labels, dataset_str):
     class_distribution = {}
@@ -486,7 +487,8 @@ def syn_label_distribution(labels, dataset_str):
     plt.bar(class_indices, counts)
     plt.xlabel('Class Index')
     plt.ylabel('Number of Nodes')
-    plt.title('Synthetic Class Distribution of '+ dataset_str)
-    plt.savefig('./images/'+dataset_str+'.png')
+    plt.title( dataset_str + 'Multi-Label Class Distribution')
+ 
+    plt.savefig('./images/' + dataset_str + '.svg', format='svg', dpi = 600)
     plt.close()
     print(dataset_str+'Image saved')
