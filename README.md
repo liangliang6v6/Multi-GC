@@ -7,7 +7,7 @@ Abstract
 ----
 Given the widespread use of multi-label graphs in real-world scenarios, adapting existing state-of-the-art graph condensation methods for efficient training of neural models on these datasets remains an open challenge. In this work, we extend available graph condensation techniques to multi-label graph node classification by introducing probabilistic label and subgraph initialization methods, along with a generalized multi-label loss function for adaptation. We aim to condense large multi-label graphs into small, synthetic graphs that retain essential information, allowing graph neural networks (GNNs) trained on the condensed graphs to achieve comparable performance to those trained on the original datasets. We evaluate our approach across eight diverse multi-label graph datasets, comparing the statistical properties of the synthetic graphs to their original counterparts. Additionally, we benchmark the performance of these GC methods against coreset selection techniques. Our extensive experiments demonstrate that the proposed adaptations achieve significant reductions in graph size while maintaining competitive classification accuracy, thus paving the way for more efficient learning from large-scale multi-label graph data.
 
-<div align=center><img src="https://github.com/liangliang6v6/Multi-GCond/blob/main/structure.png" width="800"/></div>
+<div align=center><img src="images/structure.png" width="800"/></div>
 
 ## Requirements
 ```
