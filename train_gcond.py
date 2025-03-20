@@ -6,7 +6,7 @@ import argparse
 import torch
 from utils import *
 import torch.nn.functional as F
-from gcond_agent_transduct import MGCond
+from gcond_agent import MGCond
 from utils_graphsaint import DataGraphSAINT
 from torch_geometric.datasets import Yelp
 import os
@@ -76,21 +76,4 @@ print(args)
 data_full = get_dataset(args.dataset, args.normalize_features)
 data = Transd2Ind(data_full, keep_ratio=args.keep_ratio)
 
-agent = MGCond(data, args, "PPI-Large", device='cuda')
-
-# agent.train()
-
-# agent.test_with_val()
-
-# if args.lab_up:
-#     agent = MGCond(data, args, device='cuda')
-#     agent.train()
-# else:
-#     print('@original agent')
-#     if args.one_step:
-#         print('@one step GCond')
-#     agent0 = GCond(data, args, device='cuda')
-#     agent0.train()
-# agent0.syn_label_image()
-
-# agent.syn_label_image()
+agent = MGCond(data, args, device='cuda')

@@ -29,13 +29,13 @@ def get_dataset(name, normalize_features=False, transform=None, if_dpr=True):
         dataset.num_classes = dataset.y.shape[1]
         dataset.multi = True
     elif name in ['dblp','dblp-single']:
-        dataset = torch.load('/data/liang/code/GCond'+'/data/dblp/data.pt')
+        dataset = torch.load('/data/liang/workspace/code/GCond'+'/data/dblp/data.pt')
         dataset.name = name
         dataset.num_classes = dataset.y.shape[1]
         dataset.multi = True
     elif name in ['hg','pcg','eg']:
         #dataset = torch.load('data/'+name+'/data.pt')
-        dataset = torch.load("/data/liang/code/GCond" + '/data/' + name + '/data.pt')
+        dataset = torch.load("/data/liang/workspace/code/GCond" + '/data/' + name + '/data.pt')
         dataset.name = name
         dataset.num_classes = dataset.y.shape[1]
         dataset.multi = True

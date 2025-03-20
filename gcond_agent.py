@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from utils import match_loss, regularization, row_normalize_tensor,ml_acc,syn_label_distribution,syn_label_corr
 import deeprobust.graph.utils as utils
 from copy import deepcopy
-import numpy as np
 from tqdm import tqdm
 from models.multi_gcn import GCN
 from models.multi_sgc import SGC
@@ -21,41 +20,40 @@ from sklearn.metrics import accuracy_score
 from coreset import KCenter, Herding, Random
 
 class MGCond:
-    def __init__(self, data, args,dataset, device='cuda', **kwargs):
-        # torch.autograd.set_detect_anomaly(True)
+    def __init__(self, data, args,device='cuda', **kwargs):
         self.data = data
         self.args = args
         self.device = device
         labels = torch.tensor(self.data.labels_train, dtype=torch.float32)
-        syn_label_corr(labels, args, dataset)
-        syn_label_distribution(labels, dataset)
-        # n = int(data.feat_train.shape[0] * args.reduction_rate)
-        # d = data.feat_train.shape[1]
-        # self.nnodes_syn = n
-        # # self.feat_syn = nn.Parameter(torch.FloatTensor(n, d).to(device))
+        # syn_label_corr(labels, args, dataset)
+        # syn_label_distribution(labels, dataset)
+        n = int(data.feat_train.shape[0] * args.reduction_rate)
+        d = data.feat_train.shape[1]
+        self.nnodes_syn = n
+        # self.feat_syn = nn.Parameter(torch.FloatTensor(n, d).to(device))
         
-        # self.pge = PGE(nfeat=d, nnodes=n, device=device,args=args).to(device)
+        self.pge = PGE(nfeat=d, nnodes=n, device=device,args=args).to(device)
 
-        # if self.args.subgraph:
-        #     feat_syn, labels_syn = self.coreset_init()
-        #     self.labels_syn = labels_syn.to(device)
-        #     self.feat_syn = nn.Parameter(feat_syn.to(device))
-        # else:
-        #     self.labels_syn = self.generate_labels_syn(n).to(device)
-        #     self.feat_syn = nn.Parameter(self.generate_feat_syn(self.labels_syn, n).to(device))
+        if self.args.subgraph:
+            feat_syn, labels_syn = self.coreset_init()
+            self.labels_syn = labels_syn.to(device)
+            self.feat_syn = nn.Parameter(feat_syn.to(device))
+        else:
+            self.labels_syn = self.generate_labels_syn(n).to(device)
+            self.feat_syn = nn.Parameter(self.generate_feat_syn(self.labels_syn, n).to(device))
 
-        # if args.loss=="BCE+":
-        #     print("@BCELOSS+Coefficience")
-        # elif args.loss=="BCE":
-        #     print("@BCE")
-        # else:
-        #     print("@SoftMarginLoss")
+        if args.loss=="BCE+":
+            print("@BCELOSS+Coefficience")
+        elif args.loss=="BCE":
+            print("@BCE")
+        else:
+            print("@SoftMarginLoss")
         
-        # self.optimizer_feat = torch.optim.Adam([self.feat_syn], lr=args.lr_feat)
-        # self.optimizer_pge = torch.optim.Adam(self.pge.parameters(), lr=args.lr_adj)
+        self.optimizer_feat = torch.optim.Adam([self.feat_syn], lr=args.lr_feat)
+        self.optimizer_pge = torch.optim.Adam(self.pge.parameters(), lr=args.lr_adj)
         
-        # print('adj_syn:', (n,n), 'feat_syn:', self.feat_syn.shape)
-        # # print('@original syn feature', self.feat_syn[0])
+        print('adj_syn:', (n,n), 'feat_syn:', self.feat_syn.shape)
+        # print('@original syn feature', self.feat_syn[0])
     
     def coreset_init(self):
         data = self.data
@@ -109,6 +107,7 @@ class MGCond:
         sim_idx = np.argmax(sim)
         # print('sim:',syn_label, labels[sim_idx], sim_idx)
         return sim_idx
+    
     def generate_feat_syn(self, labels_syn, n):
         labels_syn = labels_syn.detach().cpu().numpy()
         feat_train = self.data.feat_train
@@ -149,65 +148,52 @@ class MGCond:
 
     def test_with_val(self, verbose=True):
         res = []
-
         data, device = self.data, self.device
         feat_syn, pge, labels_syn = self.feat_syn.detach(), \
                                 self.pge, self.labels_syn.detach()
         
-        '''fine tune the learning model'''
-        # if self.args.dataset in ['yelp']:
-        #     # print('GCN for yelp')
-        #     model = GCN(nfeat=feat_syn.shape[1], nhid=self.args.hidden, dropout=0,
-        #                 weight_decay=0, nlayers=2,
-        #                 nclass=data.nclass, device=device).to(device)
-        # else:
-        if 'mlp' == self.args.test_model:
-            model = MLP(nfeat=feat_syn.shape[1], nhid=self.args.hidden, dropout=0,
-                    weight_decay=1e-5, nlayers=2,
+        model = GCN(nfeat=feat_syn.shape[1], nhid=self.args.hidden, dropout=0,
+                    weight_decay=0, nlayers=2,
                     nclass=data.nclass, device=device).to(device)
-        else:
-            model = GCN(nfeat=feat_syn.shape[1], nhid=self.args.hidden, dropout=0,
-                        weight_decay=0, nlayers=2,
-                        nclass=data.nclass, device=device).to(device)
-        # print('@test model', model)
 
         adj_syn = pge.inference(feat_syn)
 
         if self.args.lr_adj == 0:
             n = len(labels_syn)
             adj_syn = torch.zeros((n, n))
-
-        model.fit_with_val(feat_syn, adj_syn, labels_syn, data,
-                     train_iters=200, normalize=True, verbose=False)
-        model.eval()
-        labels_train = torch.LongTensor(data.labels_train).to(device)
-        labels_test = torch.LongTensor(data.labels_test).to(device)
-                        # Calculate the coefficience
-        class_counts = labels_train.sum(dim=0)
-        epsilon = 1e-6
-        class_weights = 1.0 / (class_counts + epsilon)
-        class_weights = class_weights / class_weights.sum() * len(class_weights)
-
-        # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
-        if self.args.loss == "BCE":
-            criterion = nn.BCEWithLogitsLoss()
-        elif self.args.loss == "BCE+":
-            criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights)
-        else:
-            criterion = nn.MultiLabelSoftMarginLoss()
-
-        output = model.predict(data.feat_train, data.adj_train)
-        loss_train = criterion(output, labels_train.float())
-        f1_micro,f1_macro,f1_weight = ml_acc(output, labels_train)
         
-        if verbose:
-            print("Train results:",
-                  "loss= {:.4f}".format(loss_train),
-                  "F1-micro= {:.4f}".format(f1_micro),
-                  "F1-macro= {:.4f}".format(f1_macro),
-                  "F1-weighted= {:.4f}".format(f1_weight)
-                  )
-        res.append(f1_micro.item())
+        
+        # model.fit_with_val(feat_syn, adj_syn, labels_syn, data,
+        #              train_iters=200, normalize=True, verbose=False)
+        # model.eval()
+        # labels_train = torch.LongTensor(data.labels_train).to(device)
+        # labels_test = torch.LongTensor(data.labels_test).to(device)
+        #                 # Calculate the coefficience
+        # class_counts = labels_train.sum(dim=0)
+        # epsilon = 1e-6
+        # class_weights = 1.0 / (class_counts + epsilon)
+        # class_weights = class_weights / class_weights.sum() * len(class_weights)
+
+        # # loss = nn.MultiLabelSoftMarginLoss() nn.BCEWithLogitsLoss()
+        # if self.args.loss == "BCE":
+        #     criterion = nn.BCEWithLogitsLoss()
+        # elif self.args.loss == "BCE+":
+        #     criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights)
+        # else:
+        #     criterion = nn.MultiLabelSoftMarginLoss()
+
+        # output = model.predict(data.feat_train, data.adj_train)
+        # loss_train = criterion(output, labels_train.float())
+        # f1_micro,f1_macro,f1_weight = ml_acc(output, labels_train)
+        
+        # if verbose:
+        #     print("Train results:",
+        #           "loss= {:.4f}".format(loss_train),
+        #           "F1-micro= {:.4f}".format(f1_micro),
+        #           "F1-macro= {:.4f}".format(f1_macro),
+        #           "F1-weighted= {:.4f}".format(f1_weight)
+        #           )
+        # res.append(f1_micro.item())
 
         # Full graph
         output = model.predict(data.feat_full, data.adj_full)
@@ -303,34 +289,17 @@ class MGCond:
                 '''update features and adj'''
                 self.optimizer_feat.zero_grad()
                 self.optimizer_pge.zero_grad()
-                # if args.lab_up:
-                #     self.optimizer_label.zero_grad()
-                #     '''update labels with label correlation loss'''
-                #     if args.lcorr:
-                #         label_loss = self.corr_loss()
-                #         # print('gradient loss', loss,' label_corr loss',label_loss)
-                #         loss += args.loss_lab * label_loss
-                # loss.backward(retain_graph=True)
                 loss.backward()
-                # if it % 2 == 0:
-                #     self.optimizer_label.step()
-                #     self.labels_syn.data.clamp_(min=0, max=1)
-                #     print('updated labels:\n', torch.sum(labels_syn, dim=0))
+
                 if it % 50 < 10:
                     self.optimizer_pge.step()
                 else:
                     self.optimizer_feat.step()
-                # '''update labels'''
-                # if args.lab_up and it % args.lab_step == 0:
-                #     self.optimizer_label.step()
-                #     self.labels_syn.data.clamp_(min=0, max=1)
 
                 if args.debug and ol % 5 ==0:
                     print('Gradient matching loss:', loss.item())
 
                 if ol == outer_loop - 1:
-                    # print('loss_reg:', loss_reg.item())
-                    # print('Gradient matching loss:', loss.item())
                     break
 
                 feat_syn_inner = feat_syn.detach()
@@ -358,9 +327,6 @@ class MGCond:
             eval_epochs = list(range(0, 5000, 50))
             if it==args.epochs:
                 print('@final syn_labels:\n', torch.sum(labels_syn, dim=0))
-                # print('@final syn feature', self.feat_syn[0])
-                # get the label correlations
-                # syn_label_corr(labels_syn, args)
             if verbose and it in eval_epochs:
             # if verbose and (it+1) % 50 == 0:
                 res = []
